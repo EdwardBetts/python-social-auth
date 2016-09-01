@@ -6,9 +6,10 @@ import social.apps.django_app.default.fields
 
 
 class Migration(migrations.Migration):
+    replaces = [('default', '0004_auto_20160423_0400')]
 
     dependencies = [
-        ('default', '0003_alter_email_max_length'),
+        ('social_auth', '0003_alter_email_max_length'),
     ]
 
     operations = [

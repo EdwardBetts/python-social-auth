@@ -1,22 +1,16 @@
-import sys
+from os.path import dirname, abspath
 
-sys.path.append('../..')
+SECRET_KEY = 'random-secret-key'
+SESSION_COOKIE_NAME = 'psa_session'
+DEBUG = True
+DEBUG_TB_INTERCEPT_REDIRECTS = False
+SESSION_PROTECTION = 'strong'
 
-import web
-from web.contrib.template import render_jinja
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import scoped_session, sessionmaker
-
-from social.utils import setting_name
-from social.apps.webpy_app.utils import psa, backends
-from social.apps.webpy_app import app as social_app
-
-import local_settings
-
-web.config.debug = False
-web.config[setting_name('USER_MODEL')] = 'models.User'
-web.config[setting_name('AUTHENTICATION_BACKENDS')] = (
+SOCIAL_AUTH_STORAGE = 'social.apps.flask_app.peewee.models.FlaskStorage'
+SOCIAL_AUTH_LOGIN_URL = '/'
+SOCIAL_AUTH_LOGIN_REDIRECT_URL = '/done/'
+SOCIAL_AUTH_USER_MODEL = 'flask_example.models.user.User'
+SOCIAL_AUTH_AUTHENTICATION_BACKENDS = (
     'social.backends.open_id.OpenIdAuth',
     'social.backends.google.GoogleOpenId',
     'social.backends.google.GoogleOAuth2',
@@ -55,62 +49,7 @@ web.config[setting_name('AUTHENTICATION_BACKENDS')] = (
     'social.backends.xing.XingOAuth',
     'social.backends.yandex.YandexOAuth2',
     'social.backends.podio.PodioOAuth2',
+    'social.backends.reddit.RedditOAuth2',
     'social.backends.mineid.MineIDOAuth2',
     'social.backends.wunderlist.WunderlistOAuth2',
-    'social.backends.upwork.UpworkOAuth',
 )
-web.config[setting_name('LOGIN_REDIRECT_URL')] = '/done/'
-
-
-urls = (
-    '^/$', 'main',
-    '^/done/$', 'done',
-    '', social_app.app_social
-)
-
-
-render = render_jinja('templates/')
-
-
-class main(object):
-    def GET(self):
-        return render.home()
-
-
-class done(social_app.BaseViewClass):
-    def GET(self):
-        user = self.get_current_user()
-        return render.done(user=user, backends=backends(user))
-
-
-engine = create_engine('sqlite:///test.db', echo=True)
-
-
-def load_sqla(handler):
-    web.ctx.orm = scoped_session(sessionmaker(bind=engine))
-    try:
-        return handler()
-    except web.HTTPError:
-        web.ctx.orm.commit()
-        raise
-    except:
-        web.ctx.orm.rollback()
-        raise
-    finally:
-        web.ctx.orm.commit()
-        # web.ctx.orm.expunge_all()
-
-
-Session = sessionmaker(bind=engine)
-Session.configure(bind=engine)
-
-app = web.application(urls, locals())
-app.add_processor(load_sqla)
-session = web.session.Session(app, web.session.DiskStore('sessions'))
-
-web.db_session = Session()
-web.web_session = session
-
-
-if __name__ == "__main__":
-    app.run()

@@ -1,16 +1,14 @@
 import sys
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import scoped_session, sessionmaker
-
 from flask import Flask, g
-from flask_login import LoginManager, current_user
+from flask.ext import login
 
 sys.path.append('../..')
 
 from social.apps.flask_app.routes import social_auth
 from social.apps.flask_app.template_filters import backends
-from social.apps.flask_app.default.models import init_social
+from social.apps.flask_app.peewee.models import *
+from peewee import *
 
 # App
 app = Flask(__name__)
@@ -21,15 +19,16 @@ try:
 except ImportError:
     pass
 
+from models.user import database_proxy, User
+
 # DB
-engine = create_engine(app.config['SQLALCHEMY_DATABASE_URI'])
-Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-db_session = scoped_session(Session)
+database = SqliteDatabase('test.db')
+database_proxy.initialize(database)
 
 app.register_blueprint(social_auth)
-init_social(app, db_session)
+init_social(app, database)
 
-login_manager = LoginManager()
+login_manager = login.LoginManager()
 login_manager.login_view = 'main'
 login_manager.login_message = ''
 login_manager.init_app(app)
@@ -41,25 +40,15 @@ from flask_example import routes
 @login_manager.user_loader
 def load_user(userid):
     try:
-        return models.user.User.query.get(int(userid))
-    except (TypeError, ValueError):
+        us = User.get(User.id == userid)
+        return us
+    except User.DoesNotExist:
         pass
 
 
 @app.before_request
 def global_user():
-    # evaluate proxy value
-    g.user = current_user._get_current_object()
-
-
-@app.teardown_appcontext
-def commit_on_success(error=None):
-    if error is None:
-        db_session.commit()
-    else:
-        db_session.rollback()
-
-    db_session.remove()
+    g.user = login.current_user._get_current_object()
 
 
 @app.context_processor
